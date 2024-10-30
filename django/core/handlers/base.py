@@ -18,6 +18,10 @@ logger = logging.getLogger("django.request")
 
 
 class BaseHandler:
+
+    # @gaojian:
+    # 这里有三个中间件列表，分别是视图中间件、模板响应中间件和异常中间件
+    # _view_middleware: 视图中间件，其实就是中间件的`process_view`方法，该方法会在视图函数执行之前执行
     _view_middleware = None
     _template_response_middleware = None
     _exception_middleware = None
@@ -29,6 +33,8 @@ class BaseHandler:
 
         Must be called after the environment is fixed (see __call__ in subclasses).
         """
+
+        # @gaojian: 加载中间件，将中间件列表从 settings.MIDDLEWARE 中加载进来
         self._view_middleware = []
         self._template_response_middleware = []
         self._exception_middleware = []
@@ -135,9 +141,14 @@ class BaseHandler:
 
     def get_response(self, request):
         """Return an HttpResponse object for the given HttpRequest."""
+        # @gaojian: 处理请求
+
         # Setup default url resolver for this thread
         set_urlconf(settings.ROOT_URLCONF)
+
+        # @gaojian: 调用中间件链
         response = self._middleware_chain(request)
+
         response._resource_closers.append(request.close)
         if response.status_code >= 400:
             log_response(
@@ -181,6 +192,14 @@ class BaseHandler:
         callback, callback_args, callback_kwargs = self.resolve_request(request)
 
         # Apply view middleware
+        # @gaojian:
+        # 使用所有中间件的process_view 方法，该方法会在视图函数执行之前执行
+        # 该方法的返回值如果不为None，则框架会直接返回
+        # 它和其他中间件函数的区别在于：
+        # 1. 它的返回值不为None时，框架会直接返回，不会继续执行后续的中间件函数
+        # 2. 它不在中间件链中，而是在视图函数执行之前全部执行，也就是说，它是中间件链的第一个中间件
+        # 3. 它是在视图函数执行之前执行的，所以它的返回值可以是任意类型，不一定是响应对象
+        # 4. 它不在视图函数的事务中，所以它的返回值不会被事务回滚
         for middleware_method in self._view_middleware:
             response = middleware_method(
                 request, callback, callback_args, callback_kwargs
@@ -189,6 +208,10 @@ class BaseHandler:
                 break
 
         if response is None:
+            # @gaojian:
+            # 如果中间件没有返回值，则执行视图函数
+            # 为视图函数添加事务
+            # 如果视图函数是异步函数，则将其转换为同步函数
             wrapped_callback = self.make_view_atomic(callback)
             # If it is an asynchronous view, run it in a subthread.
             if iscoroutinefunction(wrapped_callback):
@@ -201,10 +224,14 @@ class BaseHandler:
                     raise
 
         # Complain if the view returned None (a common error).
+        # @gaojian: 如果视图函数返回值为None，则抛出异常
         self.check_response(response, callback)
 
         # If the response supports deferred rendering, apply template
         # response middleware and then render the response
+        # @gaojian: 如果响应对象支持延迟渲染，则应用模板响应中间件，然后渲染响应
+        # @gaojian: 模板响应中间件会在响应对象的render方法执行之前执行
+        # @gaojian: 如果响应对象的render方法是异步函数，则将其转换为同步函数
         if hasattr(response, "render") and callable(response.render):
             for middleware_method in self._template_response_middleware:
                 response = middleware_method(request, response)

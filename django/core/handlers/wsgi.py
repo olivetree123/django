@@ -118,9 +118,14 @@ class WSGIHandler(base.BaseHandler):
         self.load_middleware()
 
     def __call__(self, environ, start_response):
+        # @gaojian: 该方法是 WSGI 应用程序的入口点。
+        # @gaojian: 它接收两个参数，这两个参数是由WSGI Server传递过来的
+
         set_script_prefix(get_script_name(environ))
         signals.request_started.send(sender=self.__class__, environ=environ)
         request = self.request_class(environ)
+
+        # @gaojian: 调用基类的方法处理请求
         response = self.get_response(request)
 
         response._handler_class = self.__class__
@@ -158,6 +163,10 @@ def get_script_name(environ):
     the script name prior to any rewriting (so it's the script name as seen
     from the client's perspective), unless the FORCE_SCRIPT_NAME setting is
     set (to anything).
+
+    返回 HTTP 请求的 SCRIPT_NAME 环境变量。如果使用 Apache mod_rewrite，则返回本来的内容
+    任何重写之前的脚本名称（所以它是所看到的脚本名称
+    从客户端的角度来看），除非有设置 FORCE_SCRIPT_NAME（设置为任何东西）。
     """
     if settings.FORCE_SCRIPT_NAME is not None:
         return settings.FORCE_SCRIPT_NAME
@@ -167,9 +176,13 @@ def get_script_name(environ):
     # rewrites. Unfortunately not every web server (lighttpd!) passes this
     # information through all the time, so FORCE_SCRIPT_NAME, above, is still
     # needed.
-    script_url = get_bytes_from_wsgi(environ, "SCRIPT_URL", "") or get_bytes_from_wsgi(
-        environ, "REDIRECT_URL", ""
-    )
+
+    # 如果 Apache 的 mod_rewrite 对 URL 进行了处理，
+    # Apache 会将 SCRIPT_URL 或 REDIRECT_URL 设置为应用任何重写之前的完整资源 URL。
+    # 不幸的是，并不是每个 Web 服务器（例如 lighttpd！）都会一直传递这些信息，因此上面的 FORCE_SCRIPT_NAME 仍然是需要的。
+    script_url = get_bytes_from_wsgi(environ, "SCRIPT_URL",
+                                     "") or get_bytes_from_wsgi(
+                                         environ, "REDIRECT_URL", "")
 
     if script_url:
         if b"//" in script_url:
