@@ -15,12 +15,20 @@ class Apps:
     A registry that stores the configuration of installed applications.
 
     It also keeps track of models, e.g. to provide reverse relations.
+
+
+    gaojian: 一个存储已安装应用程序配置的注册表。
     """
 
     def __init__(self, installed_apps=()):
         # installed_apps is set to None when creating the main registry
         # because it cannot be populated at that point. Other registries must
         # provide a list of installed apps and are populated immediately.
+        #
+        # gaojian:
+        # installed_apps 被设置为 None 时，是在创建主注册表时，因为此时无法填充它。
+        # 其他注册表必须提供已安装的应用程序列表，并立即填充。
+        #
         if installed_apps is None and hasattr(sys.modules[__name__], "apps"):
             raise RuntimeError("You must supply an installed_apps argument.")
 
@@ -65,12 +73,19 @@ class Apps:
         Import each application module and then each model module.
 
         It is thread-safe and idempotent, but not reentrant.
+
+        @gaojian:
+        加载应用程序配置和模型。
+        导入每个应用程序模块，然后导入每个模型模块。
+        它是线程安全的，幂等的，但不可重入。
         """
         if self.ready:
             return
 
         # populate() might be called by two threads in parallel on servers
         # that create threads before initializing the WSGI callable.
+        #
+        # gaojian: populate() 有可能在两个线程中并行调用，这两个线程是在初始化 WSGI 可调用之前创建的。
         with self._lock:
             if self.ready:
                 return

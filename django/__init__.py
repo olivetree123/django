@@ -21,4 +21,5 @@ def setup(set_prefix=True):
         set_script_prefix(
             "/" if settings.FORCE_SCRIPT_NAME is None else settings.FORCE_SCRIPT_NAME
         )
+    # gaojian: 加载所有app，并导入所有app的model
     apps.populate(settings.INSTALLED_APPS)

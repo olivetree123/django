@@ -363,6 +363,7 @@ class ModelBase(type):
             return new_class
 
         new_class._prepare()
+        # gaojian: 注册model
         new_class._meta.apps.register_model(new_class._meta.app_label, new_class)
         return new_class
 

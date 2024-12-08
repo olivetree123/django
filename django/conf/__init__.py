@@ -55,6 +55,7 @@ class LazySettings(LazyObject):
         is used the first time settings are needed, if the user hasn't
         configured settings manually.
         """
+        # gaojian: manage.py 会设置这个环境变量
         settings_module = os.environ.get(ENVIRONMENT_VARIABLE)
         if not settings_module:
             desc = ("setting %s" % name) if name else "settings"
@@ -110,6 +111,8 @@ class LazySettings(LazyObject):
 
     def configure(self, default_settings=global_settings, **options):
         """
+        动态添加一些配置项
+
         Called to manually configure the settings. The 'default_settings'
         parameter sets where to retrieve any unspecified values from (its
         argument must support attribute access (__getattr__)).
