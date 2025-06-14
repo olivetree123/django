@@ -54,6 +54,10 @@ class LimitedStream(IOBase):
 
 
 class WSGIRequest(HttpRequest):
+    """
+    gaojian: 解析请求参数，参数是由WSGI Server传递过来的，解析成HttpRequest对象
+    """
+
     def __init__(self, environ):
         script_name = get_script_name(environ)
         # If PATH_INFO is empty (e.g. accessing the SCRIPT_NAME URL without a
@@ -115,11 +119,13 @@ class WSGIHandler(base.BaseHandler):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # gaojian: 加载中间件
         self.load_middleware()
 
     def __call__(self, environ, start_response):
-        # @gaojian: 该方法是 WSGI 应用程序的入口点。
-        # @gaojian: 它接收两个参数，这两个参数是由WSGI Server传递过来的
+        # gaojian: 该方法是 WSGI 应用程序的入口点。
+        # gaojian: 它接收两个参数，这两个参数是由WSGI Server传递过来的
+        # gaojian: start_response 是 WSGI Server 传递过来的回调函数，用于返回响应头和响应体
 
         set_script_prefix(get_script_name(environ))
         signals.request_started.send(sender=self.__class__, environ=environ)
@@ -136,16 +142,13 @@ class WSGIHandler(base.BaseHandler):
             *(("Set-Cookie", c.output(header="")) for c in response.cookies.values()),
         ]
         start_response(status, response_headers)
-        if getattr(response, "file_to_stream", None) is not None and environ.get(
-            "wsgi.file_wrapper"
-        ):
+        if getattr(response, "file_to_stream",
+                   None) is not None and environ.get("wsgi.file_wrapper"):
             # If `wsgi.file_wrapper` is used the WSGI server does not call
             # .close on the response, but on the file wrapper. Patch it to use
             # response.close instead which takes care of closing all files.
             response.file_to_stream.close = response.close
-            response = environ["wsgi.file_wrapper"](
-                response.file_to_stream, response.block_size
-            )
+            response = environ["wsgi.file_wrapper"](response.file_to_stream, response.block_size)
         return response
 
 
@@ -180,9 +183,8 @@ def get_script_name(environ):
     # 如果 Apache 的 mod_rewrite 对 URL 进行了处理，
     # Apache 会将 SCRIPT_URL 或 REDIRECT_URL 设置为应用任何重写之前的完整资源 URL。
     # 不幸的是，并不是每个 Web 服务器（例如 lighttpd！）都会一直传递这些信息，因此上面的 FORCE_SCRIPT_NAME 仍然是需要的。
-    script_url = get_bytes_from_wsgi(environ, "SCRIPT_URL",
-                                     "") or get_bytes_from_wsgi(
-                                         environ, "REDIRECT_URL", "")
+    script_url = get_bytes_from_wsgi(environ, "SCRIPT_URL", "") or get_bytes_from_wsgi(
+        environ, "REDIRECT_URL", "")
 
     if script_url:
         if b"//" in script_url:

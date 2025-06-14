@@ -34,7 +34,8 @@ class BaseHandler:
         Must be called after the environment is fixed (see __call__ in subclasses).
         """
 
-        # @gaojian: 加载中间件，将中间件列表从 settings.MIDDLEWARE 中加载进来
+        # gaojian: 加载中间件，将中间件列表从 settings.MIDDLEWARE 中加载进来
+        # gaojian: 中间件的加载顺序从后往前加载，也就是说，最后一个中间件最先执行
         self._view_middleware = []
         self._template_response_middleware = []
         self._exception_middleware = []
@@ -42,15 +43,14 @@ class BaseHandler:
         get_response = self._get_response_async if is_async else self._get_response
         handler = convert_exception_to_response(get_response)
         handler_is_async = is_async
+        # gaojian: 遍历中间件列表，加载中间件
         for middleware_path in reversed(settings.MIDDLEWARE):
             middleware = import_string(middleware_path)
             middleware_can_sync = getattr(middleware, "sync_capable", True)
             middleware_can_async = getattr(middleware, "async_capable", False)
             if not middleware_can_sync and not middleware_can_async:
-                raise RuntimeError(
-                    "Middleware %s must have at least one of "
-                    "sync_capable/async_capable set to True." % middleware_path
-                )
+                raise RuntimeError("Middleware %s must have at least one of "
+                                   "sync_capable/async_capable set to True." % middleware_path)
             elif not handler_is_async and middleware_can_sync:
                 middleware_is_async = False
             else:
@@ -76,9 +76,8 @@ class BaseHandler:
                 handler = adapted_handler
 
             if mw_instance is None:
-                raise ImproperlyConfigured(
-                    "Middleware factory %s returned None." % middleware_path
-                )
+                raise ImproperlyConfigured("Middleware factory %s returned None." %
+                                           middleware_path)
 
             if hasattr(mw_instance, "process_view"):
                 self._view_middleware.insert(
@@ -87,16 +86,12 @@ class BaseHandler:
                 )
             if hasattr(mw_instance, "process_template_response"):
                 self._template_response_middleware.append(
-                    self.adapt_method_mode(
-                        is_async, mw_instance.process_template_response
-                    ),
-                )
+                    self.adapt_method_mode(is_async, mw_instance.process_template_response),)
             if hasattr(mw_instance, "process_exception"):
                 # The exception-handling stack is still always synchronous for
                 # now, so adapt that way.
                 self._exception_middleware.append(
-                    self.adapt_method_mode(False, mw_instance.process_exception),
-                )
+                    self.adapt_method_mode(False, mw_instance.process_exception),)
 
             handler = convert_exception_to_response(mw_instance)
             handler_is_async = middleware_is_async
@@ -201,9 +196,7 @@ class BaseHandler:
         # 3. 它是在视图函数执行之前执行的，所以它的返回值可以是任意类型，不一定是响应对象
         # 4. 它不在视图函数的事务中，所以它的返回值不会被事务回滚
         for middleware_method in self._view_middleware:
-            response = middleware_method(
-                request, callback, callback_args, callback_kwargs
-            )
+            response = middleware_method(request, callback, callback_args, callback_kwargs)
             if response:
                 break
 
@@ -240,8 +233,8 @@ class BaseHandler:
                 self.check_response(
                     response,
                     middleware_method,
-                    name="%s.process_template_response"
-                    % (middleware_method.__self__.__class__.__name__,),
+                    name="%s.process_template_response" %
+                    (middleware_method.__self__.__class__.__name__,),
                 )
             try:
                 response = response.render()
@@ -263,9 +256,7 @@ class BaseHandler:
 
         # Apply view middleware.
         for middleware_method in self._view_middleware:
-            response = await middleware_method(
-                request, callback, callback_args, callback_kwargs
-            )
+            response = await middleware_method(request, callback, callback_args, callback_kwargs)
             if response:
                 break
 
@@ -273,13 +264,9 @@ class BaseHandler:
             wrapped_callback = self.make_view_atomic(callback)
             # If it is a synchronous view, run it in a subthread
             if not iscoroutinefunction(wrapped_callback):
-                wrapped_callback = sync_to_async(
-                    wrapped_callback, thread_sensitive=True
-                )
+                wrapped_callback = sync_to_async(wrapped_callback, thread_sensitive=True)
             try:
-                response = await wrapped_callback(
-                    request, *callback_args, **callback_kwargs
-                )
+                response = await wrapped_callback(request, *callback_args, **callback_kwargs)
             except Exception as e:
                 response = await sync_to_async(
                     self.process_exception_by_middleware,
@@ -301,16 +288,14 @@ class BaseHandler:
                 self.check_response(
                     response,
                     middleware_method,
-                    name="%s.process_template_response"
-                    % (middleware_method.__self__.__class__.__name__,),
+                    name="%s.process_template_response" %
+                    (middleware_method.__self__.__class__.__name__,),
                 )
             try:
                 if iscoroutinefunction(response.render):
                     response = await response.render()
                 else:
-                    response = await sync_to_async(
-                        response.render, thread_sensitive=True
-                    )()
+                    response = await sync_to_async(response.render, thread_sensitive=True)()
             except Exception as e:
                 response = await sync_to_async(
                     self.process_exception_by_middleware,
@@ -356,16 +341,12 @@ class BaseHandler:
                     callback.__class__.__name__,
                 )
         if response is None:
-            raise ValueError(
-                "%s didn't return an HttpResponse object. It returned None "
-                "instead." % name
-            )
+            raise ValueError("%s didn't return an HttpResponse object. It returned None "
+                             "instead." % name)
         elif asyncio.iscoroutine(response):
-            raise ValueError(
-                "%s didn't return an HttpResponse object. It returned an "
-                "unawaited coroutine instead. You may need to add an 'await' "
-                "into your view." % name
-            )
+            raise ValueError("%s didn't return an HttpResponse object. It returned an "
+                             "unawaited coroutine instead. You may need to add an 'await' "
+                             "into your view." % name)
 
     # Other utility methods.
 
@@ -374,9 +355,7 @@ class BaseHandler:
         for alias, settings_dict in connections.settings.items():
             if settings_dict["ATOMIC_REQUESTS"] and alias not in non_atomic_requests:
                 if iscoroutinefunction(view):
-                    raise RuntimeError(
-                        "You cannot use ATOMIC_REQUESTS with async views."
-                    )
+                    raise RuntimeError("You cannot use ATOMIC_REQUESTS with async views.")
                 view = transaction.atomic(using=alias)(view)
         return view
 

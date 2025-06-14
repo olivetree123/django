@@ -74,16 +74,12 @@ def reverse(viewname, urlconf=None, args=None, kwargs=None, current_app=None):
                 ns_converters.update(resolver.pattern.converters)
             except KeyError as key:
                 if resolved_path:
-                    raise NoReverseMatch(
-                        "%s is not a registered namespace inside '%s'"
-                        % (key, ":".join(resolved_path))
-                    )
+                    raise NoReverseMatch("%s is not a registered namespace inside '%s'" %
+                                         (key, ":".join(resolved_path)))
                 else:
                     raise NoReverseMatch("%s is not a registered namespace" % key)
         if ns_pattern:
-            resolver = get_ns_resolver(
-                ns_pattern, resolver, tuple(ns_converters.items())
-            )
+            resolver = get_ns_resolver(ns_pattern, resolver, tuple(ns_converters.items()))
 
     return resolver._reverse_with_prefix(view, prefix, *args, **kwargs)
 
@@ -171,11 +167,8 @@ def translate_url(url, lang_code):
     except Resolver404:
         pass
     else:
-        to_be_reversed = (
-            "%s:%s" % (match.namespace, match.url_name)
-            if match.namespace
-            else match.url_name
-        )
+        to_be_reversed = ("%s:%s" %
+                          (match.namespace, match.url_name) if match.namespace else match.url_name)
         with override(lang_code):
             try:
                 url = reverse(to_be_reversed, args=match.args, kwargs=match.kwargs)
@@ -183,6 +176,5 @@ def translate_url(url, lang_code):
                 pass
             else:
                 url = urlunsplit(
-                    (parsed.scheme, parsed.netloc, url, parsed.query, parsed.fragment)
-                )
+                    (parsed.scheme, parsed.netloc, url, parsed.query, parsed.fragment))
     return url
